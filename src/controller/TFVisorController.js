@@ -30,6 +30,12 @@ export class TFVisorController {
                 this.#tfVisorView.handleTrainingLog(log);
             }
         );
+
+        this.#events.onTFVisorData(
+            (data) => {
+                this.#tfVisorView.renderData(data);
+            }
+        );
     }
 
 }
