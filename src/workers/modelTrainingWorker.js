@@ -104,14 +104,27 @@ function encodeProduct(product, context){
     )
 
     const color = oneHotWeighted(
-        context.colorsIndex[product.category],
-        context.numCategories,
-        WEIGHTS.category
+        context.colorsIndex[product.color],
+        context.numColors,
+        WEIGHTS.color
     )
 
     return tf.concat1d(
         [price, age, category, color]
     )
+}
+
+function encodeUser(user, context) {
+    if(user.purchases.lenght) {
+        return tf.stack(
+            user.purchases.map(
+                product => encodeProduct(product, context)
+            )
+        ).mean(0).reshape([
+            1,
+            context.dimentions
+        ])
+    }
 }
 
 async function trainModel({ users }) {
@@ -130,6 +143,37 @@ async function trainModel({ users }) {
     })
 
     _globalCtx = context
+
+    function createTrainingData(context){
+        const inputs = []
+        const labels = []
+        context.users.forEach(user => {
+            const userVector = encodeUsers(user, context).dataSync()
+            context.products.forEach(product => {
+                const productVector = encodeProduct(product, context).dataSync()
+
+                const label = user.purchases.some(
+                    purchase => purchase.name === product.name ?
+                    1 :
+                    0
+                )
+                // Combinar user + product
+                inputs.push([...userVector, ...productVector])
+                labels.push(label)
+
+            })
+        })
+
+        return {
+            xs: tf.tensor2d(inputs),
+            ys: tf.tensor2d(labels, [ labels.length, 1 ]),
+            inputDimention: context.dimentions * 2
+            // tamanho = userVector + productVector
+        }
+    }
+
+    const trainData = createTrainingData(context)
+
     postMessage({
         type: workerEvents.trainingLog,
         epoch: 1,
